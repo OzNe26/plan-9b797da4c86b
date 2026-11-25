@@ -799,6 +799,17 @@ a.cd:hover{box-shadow:0 10px 30px rgba(30,53,96,.18);border-color:var(--btn)}
 @media(max-width:640px){#lt{left:calc(202px + env(safe-area-inset-left,0px))}#lt.shut{left:calc(10px + env(safe-area-inset-left,0px))}}
 
 #lg select.fsel{width:100%;box-sizing:border-box;margin:0 0 6px;padding:7px 8px;background:var(--fld);color:var(--tx);border:1px solid var(--bd);border-radius:6px;font:inherit}
+#lg details.msel{margin:0 0 6px;border:1px solid var(--bd);border-radius:6px;background:var(--fld)}
+#lg details.msel summary{list-style:none;padding:7px 26px 7px 8px;color:var(--tx);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lg details.msel summary::-webkit-details-marker{display:none}
+#lg details.msel summary::after{content:"";position:absolute;right:10px;top:12px;width:6px;height:6px;border-right:2px solid var(--mu);border-bottom:2px solid var(--mu);transform:rotate(45deg)}
+#lg details.msel[open] summary::after{transform:rotate(225deg);top:15px}
+#lg details.msel.act{border-color:var(--btn);box-shadow:inset 3px 0 0 var(--btn)}
+#lg details.msel.act summary{font-weight:700}
+#lg .mopts{max-height:240px;overflow:auto;padding:2px 8px 8px;border-top:1px solid var(--bd)}
+#lg .mopts label{margin:4px 0;font-size:12.5px;align-items:flex-start}
+#lg .mopts input{margin-top:2px}
+#lg .mclr{border:0;background:none;color:var(--btn);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:6px 0 2px}
 </style></head><body><div id="home" hidden>
 <div class="hw">
 <a id="hub" href="https://ozne26.github.io/airflux-hub/">← Hub Airflux</a>
@@ -818,8 +829,8 @@ a.cd:hover{box-shadow:0 10px 30px rgba(30,53,96,.18);border-color:var(--btn)}
 <a id="back" class="wide main" href="#">← Retour à l'accueil</a>
 <h1 id="ttl"></h1>
 <input id="q" type="search" placeholder="Rechercher une société…" aria-label="Rechercher une société" autocomplete="off">
-<select id="fsec" class="fsel" aria-label="Filtrer par secteur d'activité"></select>
-<select id="fins" class="fsel" aria-label="Filtrer par type d'installation probable"></select>
+<details class="msel" id="dsec"><summary id="ssec">Secteur : tous</summary><div class="mopts" id="fsec"></div></details>
+<details class="msel" id="dins"><summary id="sins">Installation probable : toutes</summary><div class="mopts" id="fins"></div></details>
 <button id="ad" class="wide main" type="button">+ Ajouter un point</button>
 <button id="bm" class="wide" type="button"></button>
 <label><input type="checkbox" id="sd">Afficher les supprimés<span class="c" id="dn">0</span></label>
@@ -928,19 +939,27 @@ function mkMarker(p){const m=L.circleMarker([p.la,p.lo],{radius:8,weight:1,color
   m.on('mouseover',()=>{m.setStyle({radius:12,weight:3,color:'#e8332a'});m.bringToFront()});m.on('mouseout',()=>style(m));return m}
 function style(m){const s=ST[m._p.i]||{};m.setStyle({fillColor:SL[ty(m)][1],radius:s.note?11:8,weight:s.note?3:1.5,color:s.note?'#1e3560':'#ffffff',fillOpacity:s.del?.3:.9,opacity:s.del?.4:1})}
 const whoOk=p=>(who==='all'||(p.co||'').includes(who))&&fOk(p);
-let fsec='all',fins='all';const ITN={A:'Air comprimé',E:'Eau glacée',N:'Azote'};
-const fOk=p=>(fsec==='all'||(p.sec||'Non déterminé')===fsec)&&(fins==='all'||(p.it||'').includes(fins));
+const fsec=new Set(),fins=new Set();const ITN={A:'Air comprimé',E:'Eau glacée',N:'Azote'};
+const fOk=p=>(!fsec.size||fsec.has(p.sec||'Non déterminé'))&&(!fins.size||[...fins].some(c=>(p.it||'').includes(c)));
 const itTxt=it=>it?ITN[it[0]]+(it.length>1?' (aussi : '+[...it.slice(1)].map(c=>ITN[c].toLowerCase()).join(', ')+')':''):'';
 function buildFilters(){
   const P=ptsOf(cur).filter(p=>who==='all'||(p.co||'').includes(who)),sc={},ic={A:0,E:0,N:0};
   P.forEach(p=>{const k=p.sec||'Non déterminé';sc[k]=(sc[k]||0)+1;[...(p.it||'')].forEach(c=>ic[c]++)});
-  const S=$('fsec'),I=$('fins'),o=(v,l)=>'<option value="'+esc(v)+'">'+esc(l)+'</option>';
-  S.innerHTML=o('all','Secteur : tous ('+P.length+')')+Object.entries(sc).sort((a,b)=>a[0]==='Non déterminé'?1:b[0]==='Non déterminé'?-1:b[1]-a[1]).map(([k,n])=>o(k,k+' ('+n+')')).join('');
-  I.innerHTML=o('all','Installation probable : toutes')+Object.entries(ITN).map(([k,l])=>o(k,l+' ('+ic[k]+')')).join('');
-  if(fsec!=='all'&&!sc[fsec])fsec='all';S.value=fsec;I.value=fins;
+  [...fsec].forEach(k=>{if(!sc[k])fsec.delete(k)});
+  const box=(set,v,l)=>'<label><input type="checkbox" value="'+esc(v)+'"'+(set.has(v)?' checked':'')+'><span>'+esc(l)+'</span></label>';
+  $('fsec').innerHTML='<button type="button" class="mclr">Tout décocher</button>'+Object.entries(sc).sort((a,b)=>a[0]==='Non déterminé'?1:b[0]==='Non déterminé'?-1:b[1]-a[1]).map(([k,n])=>box(fsec,k,k+' ('+n+')')).join('');
+  $('fins').innerHTML='<button type="button" class="mclr">Tout décocher</button>'+Object.entries(ITN).map(([k,l])=>box(fins,k,l+' ('+ic[k]+')')).join('');
+  sumF();
 }
-$('fsec').addEventListener('change',e=>{fsec=e.target.value;map&&map.closePopup();refresh()});
-$('fins').addEventListener('change',e=>{fins=e.target.value;map&&map.closePopup();refresh()});
+function sumF(){
+  const t=(set,base,all,lab)=>set.size===0?base+' : '+all:set.size===1?base+' : '+lab([...set][0]):base+' : '+set.size+' choisis';
+  $('ssec').textContent=t(fsec,'Secteur','tous',x=>x);$('sins').textContent=t(fins,'Installation','toutes',x=>ITN[x]);
+  $('dsec').classList.toggle('act',fsec.size>0);$('dins').classList.toggle('act',fins.size>0);
+}
+[['fsec',fsec],['fins',fins]].forEach(([id,set])=>{
+  $(id).addEventListener('change',e=>{const c=e.target;if(c.checked)set.add(c.value);else set.delete(c.value);sumF();map&&map.closePopup();refresh()});
+  $(id).addEventListener('click',e=>{if(!e.target.classList.contains('mclr'))return;set.clear();$(id).querySelectorAll('input').forEach(x=>x.checked=false);sumF();refresh()});
+});
 function buildWho(){
   const w=$('cw');w.innerHTML='';const on=cur&&ptsOf(cur).some(p=>p.co);w.hidden=!on;if(!on)return;
   [['all','Tous'],['Kévin','Kévin'],['Thierry','Thierry']].forEach(([v,l])=>{const b=document.createElement('button');b.type='button';b.dataset.v=v;b.textContent=l;b.className=v===who?'on':'';
@@ -974,7 +993,7 @@ function unplaced(){
   $('unpl').innerHTML=U.map(u=>'<div><span class="dot" style="background:'+SL[u.s][1]+';width:8px;height:8px"></span><span>'+esc(u.n)+(u.v?' ('+esc(u.v)+')':'')+'</span></div>').join('');
 }
 function openMap(k){
-  cur=k;view='all';who='all';fsec='all';fins='all';$('home').hidden=true;$('app').hidden=false;initMap();map.invalidateSize();
+  cur=k;view='all';who='all';fsec.clear();fins.clear();$('home').hidden=true;$('app').hidden=false;initMap();map.invalidateSize();
   $('ttl').textContent='Carte de '+D.people[k].label;$('q').value='';setAdd(false);
   buildWho();buildFilters();refresh();labels();unplaced();fit();panel(!matchMedia('(max-width:640px)').matches);
 }
